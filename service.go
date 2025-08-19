@@ -327,15 +327,35 @@ func (c *Client) getTimestampFromServer() (int64, error) {
 
 	body, err := c.doRequest("GET", EndpointServiceTimestamp, params)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("请求时间戳API失败: %v", err)
 	}
 
-	// 直接解析时间戳响应，格式为 {"timestamp": 1414253462}
+	// 检查响应是否为空
+	if len(body) == 0 {
+		return 0, fmt.Errorf("时间戳API返回空响应")
+	}
+
+	// 先尝试解析可能的错误响应
+	var errorResp struct {
+		Status string `json:"status"`
+		Code   int    `json:"code"`
+		Msg    string `json:"msg"`
+	}
+	if err := json.Unmarshal(body, &errorResp); err == nil && errorResp.Status == "error" {
+		return 0, fmt.Errorf("时间戳API返回错误: code=%d, msg=%s", errorResp.Code, errorResp.Msg)
+	}
+
+	// 解析正常的时间戳响应，格式为 {"timestamp": 1414253462}
 	var timestampResp struct {
 		Timestamp int64 `json:"timestamp"`
 	}
 	if err := json.Unmarshal(body, &timestampResp); err != nil {
-		return 0, fmt.Errorf("解析时间戳响应失败: %v", err)
+		return 0, fmt.Errorf("解析时间戳响应失败: %v, 响应内容: %s", err, string(body))
+	}
+
+	// 检查时间戳是否有效
+	if timestampResp.Timestamp == 0 {
+		return 0, fmt.Errorf("获取到无效的时间戳: %d, 响应内容: %s", timestampResp.Timestamp, string(body))
 	}
 
 	return timestampResp.Timestamp, nil
@@ -435,6 +455,9 @@ func (c *Client) doRequestWithBaseURL(method, endpoint string, params map[string
 	requestURL := baseURL + endpoint
 	if c.format == FormatXML {
 		requestURL += ".xml"
+	} else {
+		// 默认JSON格式，添加.json后缀
+		requestURL += ".json"
 	}
 
 	var req *http.Request
@@ -543,15 +566,35 @@ func (c *Client) ServiceTimestamp() (*ServiceTimestampResponse, error) {
 
 	body, err := c.doRequest("GET", EndpointServiceTimestamp, params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求时间戳API失败: %v", err)
 	}
 
-	// 直接解析时间戳响应，格式为 {"timestamp": 1414253462}
+	// 检查响应是否为空
+	if len(body) == 0 {
+		return nil, fmt.Errorf("时间戳API返回空响应")
+	}
+
+	// 先尝试解析可能的错误响应
+	var errorResp struct {
+		Status string `json:"status"`
+		Code   int    `json:"code"`
+		Msg    string `json:"msg"`
+	}
+	if err := json.Unmarshal(body, &errorResp); err == nil && errorResp.Status == "error" {
+		return nil, fmt.Errorf("时间戳API返回错误: code=%d, msg=%s", errorResp.Code, errorResp.Msg)
+	}
+
+	// 解析正常的时间戳响应，格式为 {"timestamp": 1414253462}
 	var timestampResp struct {
 		Timestamp int64 `json:"timestamp"`
 	}
 	if err := json.Unmarshal(body, &timestampResp); err != nil {
-		return nil, fmt.Errorf("解析时间戳响应失败: %v", err)
+		return nil, fmt.Errorf("解析时间戳响应失败: %v, 响应内容: %s", err, string(body))
+	}
+
+	// 检查时间戳是否有效
+	if timestampResp.Timestamp == 0 {
+		return nil, fmt.Errorf("获取到无效的时间戳: %d, 响应内容: %s", timestampResp.Timestamp, string(body))
 	}
 
 	return &ServiceTimestampResponse{
@@ -567,6 +610,35 @@ func (c *Client) GetCurrentTimestamp() (int64, error) {
 		return 0, err
 	}
 	return resp.Timestamp, nil
+}
+
+// DiagnoseConnection 诊断网络连接问题
+func (c *Client) DiagnoseConnection() error {
+	fmt.Printf("正在诊断SUBMAIL API连接...\n")
+	fmt.Printf("基础URL: %s\n", c.BaseURL)
+	fmt.Printf("超时设置: %v\n", c.timeout)
+
+	// 测试时间戳API
+	fmt.Printf("\n1. 测试时间戳API...\n")
+	timestampResp, err := c.ServiceTimestamp()
+	if err != nil {
+		fmt.Printf("❌ 时间戳API测试失败: %v\n", err)
+		return err
+	}
+	fmt.Printf("✅ 时间戳API测试成功: %d\n", timestampResp.Timestamp)
+
+	// 测试服务状态API
+	fmt.Printf("\n2. 测试服务状态API...\n")
+	statusResp, err := c.ServiceStatus()
+	if err != nil {
+		fmt.Printf("❌ 服务状态API测试失败: %v\n", err)
+		return err
+	}
+	fmt.Printf("✅ 服务状态API测试成功: %s (响应时间: %.3fs)\n",
+		statusResp.Status, statusResp.Runtime)
+
+	fmt.Printf("\n🎉 网络连接正常！\n")
+	return nil
 }
 
 // ServiceStatus 获取服务器状态

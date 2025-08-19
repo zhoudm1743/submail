@@ -548,6 +548,45 @@ func sendBatchInChunks(client *submail.Client, content string, phones []string, 
 - 支持变量验证和提取功能
 - 可设置时区：`client.SetTimezone("Asia/Shanghai")`
 
+### Q: 遇到"SubMail API Error 0"或连接失败怎么办？
+
+这类错误通常表示网络连接问题或API响应解析失败。请按以下步骤排查：
+
+#### 1. 使用诊断功能
+```go
+// 诊断网络连接
+if err := client.DiagnoseConnection(); err != nil {
+    log.Printf("网络诊断失败: %v", err)
+}
+```
+
+#### 2. 检查网络连接
+- 确认网络可以访问 `https://api-v4.mysubmail.com`
+- 检查防火墙设置是否阻止了HTTPS连接
+- 尝试在浏览器中访问：`https://api-v4.mysubmail.com/service/timestamp`
+
+#### 3. 检查配置
+```go
+config := &submail.Config{
+    AppID:     "your-app-id",        // 确认AppID正确
+    AppKey:    "your-app-key",       // 确认AppKey正确
+    BaseURL:   "https://api-v4.mysubmail.com", // 确认URL正确
+    Timeout:   30 * time.Second,     // 适当增加超时时间
+}
+```
+
+#### 4. 常见解决方案
+- **超时问题**：增加超时时间到60秒
+- **DNS问题**：尝试使用IP地址或更换DNS服务器
+- **代理问题**：如果使用代理，确保代理配置正确
+- **SSL证书问题**：确认系统时间正确，更新CA证书
+
+#### 5. 详细错误信息
+最新版本的SDK会提供更详细的错误信息：
+- `请求时间戳API失败`: 网络请求层面的问题
+- `时间戳API返回空响应`: 服务器返回了空内容
+- `解析时间戳响应失败`: JSON解析错误，会显示原始响应内容
+
 ## 版本更新
 
 ### v1.0.2 (2025-08-19)
@@ -566,7 +605,7 @@ func sendBatchInChunks(client *submail.Client, content string, phones []string, 
 
 ## 许可证
 
-MIT License
+Apache2 License
 
 ## 支持
 

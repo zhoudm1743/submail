@@ -185,10 +185,12 @@ func ParseAPIError(data []byte) error {
 	}
 
 	if err := json.Unmarshal(data, &errorResp); err != nil {
-		return fmt.Errorf("解析错误响应失败: %v", err)
+		// 如果无法解析为错误格式，说明可能是正常响应
+		return nil
 	}
 
-	if errorResp.Status == "success" {
+	// 只有明确标记为error状态的响应才认为是错误
+	if errorResp.Status != "error" {
 		return nil
 	}
 
