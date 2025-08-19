@@ -1,25 +1,24 @@
-# SUBMAIL 赛邮 Go SDK
+# SUBMAIL 赛邮云 Go SDK
 
-这是一个用于 SUBMAIL 赛邮云通信服务的 Go SDK，支持短信发送、模板短信、余额查询等功能。
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue.svg)](https://golang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 功能特性
+SUBMAIL 赛邮云官方 Go SDK，支持短信发送、模板管理、统计分析等完整功能。
 
-- ✅ 短信发送 (SMS/Send)
-- ✅ 模板短信发送 (SMS/XSend)
-- ✅ 短信一对多发送 (SMS/Multisend)
-- ✅ 模板短信一对多发送 (SMS/MultiXSend)
-- ✅ 短信模板管理 (SMS/Template)
-- ✅ 短信分析报告 (SMS/Reports)
-- ✅ 历史明细查询 (SMS/Log)
-- ✅ 短信上行查询 (SMS/MO)
-- ✅ 账户余额查询 (SMS/Balance)
-- ✅ 服务器状态查询 (Service/Status)
-- ✅ 时间戳获取 (Service/Timestamp)
-- ✅ API 签名验证
-- ✅ 错误处理
-- ✅ 超时控制
-- ✅ 自定义 API 地址
-- ✅ 响应格式支持 (JSON/XML)
+## 特性
+
+- ✅ 完整的短信发送功能
+- ✅ 支持文本变量和日期变量
+- ✅ 动态短信签名支持（v4.002）
+- ✅ 多种发送模式：单发、一对多、批量群发、国内外联合发送
+- ✅ 明文和数字签名两种认证方式
+- ✅ 完善的错误处理机制（100+错误码定义）
+- ✅ 统计分析和历史查询
+- ✅ 余额查询和变更日志
+- ✅ 短信上行回复查询
+- ✅ 签名和模板管理
+- ✅ 服务状态监控
+- ✅ 丰富的便捷方法和数据处理功能
 
 ## 安装
 
@@ -29,701 +28,552 @@ go get github.com/zhoudm1743/submail
 
 ## 快速开始
 
-### 1. 获取 API 凭证
-
-在使用之前，您需要在 [SUBMAIL 控制台](https://www.mysubmail.com) 创建应用并获取：
-
-- `AppID`: 应用ID
-- `AppKey`: 应用密钥  
-- `Signature`: 应用签名
-
-### 2. 初始化服务
+### 基础配置
 
 ```go
 package main
 
 import (
+    "fmt"
+    "log"
+    "time"
+    
     "github.com/zhoudm1743/submail"
 )
 
 func main() {
-    // 创建服务实例（默认JSON格式）
-    service := submail.NewSaiyouService(
-        "your_app_id",
-        "your_app_key", 
-        "your_signature",
-    )
-    
-    // 或者创建指定XML格式的服务实例
-    serviceXML := submail.NewSaiyouServiceWithFormat(
-        "your_app_id",
-        "your_app_key", 
-        "your_signature",
-        submail.FormatXML,
-    )
+    // 创建客户端配置
+    config := submail.Config{
+        AppID:          "your-app-id",     // 您的App ID
+        AppKey:         "your-app-key",    // 您的App Key
+        BaseURL:        submail.DefaultBaseURL, // 默认API地址
+        Format:         submail.FormatJSON,     // JSON格式
+        UseDigitalSign: false,                  // 明文模式（测试推荐）
+        SignType:       submail.SignTypeMD5,    // 数字签名类型
+        Timeout:        30 * time.Second,       // 超时时间
+    }
+
+    // 创建客户端
+    client := submail.NewClient(config)
 }
 ```
 
-### 3. 发送短信
+### 基本短信发送
 
 ```go
-// 发送普通短信
-smsReq := &submail.SMSRequest{
-    To:   "13800138000",
-    Text: "您的验证码是1234，请在5分钟内使用。",
-    Project: "test", // 可选
-}
-
-resp, err := service.SendSMS(smsReq)
-if err != nil {
-    log.Printf("发送失败: %v", err)
-} else {
-    fmt.Printf("发送成功! ID: %s\n", resp.SendID)
-}
-```
-
-### 4. 发送模板短信
-
-```go
-// 发送模板短信
-templateReq := &submail.SMSXRequest{
+// 1. 简单短信发送
+req := &submail.SMSSendRequest{
     To:      "13800138000",
-    Project: "your_template_id", // 模板ID
-    Vars: map[string]string{
-        "code": "1234",
-        "time": "5",
-    },
+    Content: "【测试签名】您的验证码是123456，请在10分钟内输入。",
+    Tag:     "test",
 }
 
-resp, err := service.SendSMSTemplate(templateReq)
+resp, err := client.SMSSend(req)
 if err != nil {
     log.Printf("发送失败: %v", err)
 } else {
-    fmt.Printf("发送成功! ID: %s\n", resp.SendID)
+    fmt.Printf("发送成功 - SendID: %s, 费用: %d\n", resp.SendID, resp.Fee)
 }
 ```
 
-### 5. 查询余额
+### 模板短信发送
 
 ```go
-balance, err := service.GetBalance()
-if err != nil {
-    log.Printf("查询失败: %v", err)
-} else {
-    fmt.Printf("账户余额: %s\n", balance.Balance)
+// 2. 模板短信发送
+templateReq := &submail.SMSXSendRequest{
+    To:      "13800138000",
+    Project: "your-template-id",
+    Vars: map[string]string{
+        "code": "123456",
+        "time": "10",
+    },
+    Tag: "template-test",
 }
+
+templateResp, err := client.SMSXSend(templateReq)
 ```
 
-### 6. 短信一对多发送
+### 自定义签名发送（v4.002新功能）
 
 ```go
-// 短信一对多发送
-multiReq := &submail.SMSMultisendRequest{
-    Text: "亲爱的{name}，您的验证码是{code}",
+// 3. 使用自定义签名发送模板短信
+resp, err := client.SMSXSendWithSignature(
+    "13800138000",        // 收件人
+    "your-template-id",   // 模板ID
+    "自定义签名",          // 自定义签名
+    map[string]string{    // 变量
+        "code": "888888",
+        "time": "10",
+    },
+    "custom-signature-test", // 标签
+)
+```
+
+## 变量功能
+
+### 文本变量
+
+支持在短信内容中使用 `@var(变量名)` 格式的文本变量：
+
+```go
+// 使用变量发送短信
+content := "【测试签名】尊敬的@var(name)，您的验证码是@var(code)，请在@var(expire)分钟内输入。"
+vars := map[string]string{
+    "name":   "张三",
+    "code":   "123456", 
+    "expire": "10",
+}
+
+resp, err := client.SMSendWithVariables("13800138000", content, vars, "var-test")
+```
+
+### 日期变量
+
+支持多种日期时间变量：
+
+```go
+content := "【测试签名】当前时间：@date()，年份：@date(Y)，月份：@date(m)，日期：@date(d)"
+
+// 支持的日期变量：
+// @date()   - 完整日期时间 (2024-01-15 14:30:25)
+// @date(Y)  - 年份 (2024)
+// @date(m)  - 月份 (01)
+// @date(d)  - 日期 (15)
+// @date(h)  - 小时 (14)
+// @date(i)  - 分钟 (30)
+// @date(s)  - 秒钟 (25)
+// 更多格式请参考文档
+```
+
+### 变量验证和提取
+
+```go
+// 验证变量格式
+if errors := client.ValidateVariables(content); len(errors) > 0 {
+    log.Printf("变量格式错误: %v", errors)
+}
+
+// 提取变量名
+varNames := client.ExtractVariableNames(content)
+fmt.Printf("变量名: %v\n", varNames)
+
+// 获取日期变量说明
+descriptions := client.GetDateVariableDescription()
+```
+
+## 发送模式
+
+### 1. 单条发送
+- `SMSSend` - 普通短信发送
+- `SMSXSend` - 模板短信发送
+
+### 2. 一对多发送
+支持对不同用户发送个性化内容：
+
+```go
+// 一对多发送（支持每个用户不同的变量）
+multiReq := &submail.SMSMultiSendRequest{
+    Content: "【测试签名】您好，@var(name)，您的取货码为 @var(code)",
     Multi: []submail.SMSMultiItem{
         {
             To: "13800138000",
             Vars: map[string]string{
                 "name": "张三",
-                "code": "1234",
+                "code": "A001",
             },
         },
         {
-            To: "13800138001",
+            To: "13800138001", 
             Vars: map[string]string{
-                "name": "李四", 
-                "code": "5678",
+                "name": "李四",
+                "code": "B002",
             },
         },
     },
-    Project: "test_multi",
+    Tag: "multi-test",
 }
 
-resp, err := service.SendSMSMulti(multiReq)
-if err != nil {
-    log.Printf("发送失败: %v", err)
-} else {
-    fmt.Printf("发送成功! 状态: %s\n", resp.Status)
+multiResp, err := client.SMSMultiSend(multiReq)
+
+// 处理结果
+success, failed, totalFee := multiResp.GetStatistics()
+fmt.Printf("成功: %d条, 失败: %d条, 总费用: %d\n", success, failed, totalFee)
+```
+
+### 3. 批量群发
+适合向大量用户发送相同内容（最多10000个号码）：
+
+```go
+// 批量群发
+phones := []string{"13800138000", "13800138001", "13800138002"}
+content := "【测试签名】系统维护通知，预计@date(h)点完成。"
+
+batchResp, err := client.SMSBatchSendWithPhones(content, phones, "batch-test")
+
+// 查看结果
+success, failed, totalFee := batchResp.GetStatistics()
+fmt.Printf("批量发送 - 任务ID: %s, 成功: %d条, 总费用: %d\n", 
+    batchResp.BatchList, success, totalFee)
+```
+
+### 4. 国内外联合发送
+支持在一个接口中同时发送国内和国际短信：
+
+```go
+// 国内外联合发送配置
+config := &submail.SMSUnionConfig{
+    DomesticAppID:    "domestic-app-id",
+    DomesticAppKey:   "domestic-app-key",
+    InternationalAppID:    "international-app-id", 
+    InternationalAppKey:   "international-app-key",
+    DomesticContent:  "【测试签名】您的验证码是123456，请在10分钟内输入。",
+    InternationalContent: "[Test] Your verification code is 123456, valid for 10 minutes.",
+    VerifyCodeTransform: true, // 自动提取验证码
 }
+
+// 发送到国内号码
+resp1, err := client.SMSUnionSendWithConfig("+86138000138000", config, "union-test")
+
+// 发送到国际号码  
+resp2, err := client.SMSUnionSendWithConfig("+1234567890", config, "union-test")
 ```
 
-### 7. 短信模板管理
+## API 列表
 
+### 短信发送
+- `SMSSend` - 短信发送
+- `SMSXSend` - 短信模板发送  
+- `SMSMultiSend` - 短信一对多发送
+- `SMSMultiXSend` - 短信模板一对多发送
+- `SMSBatchSend` - 短信批量群发
+- `SMSBatchXSend` - 短信批量模板群发
+- `SMSUnionSend` - 国内外短信联合发送
+
+### 便捷方法
+- `SMSSendWithVariables` - 带变量的短信发送
+- `SMSXSendWithSignature` - 自定义签名模板发送
+- `SMSMultiSendWithVariables` - 带变量的一对多发送
+- `SMSMultiXSendWithSignature` - 自定义签名模板一对多发送
+- `SMSBatchSendWithPhones` - 批量发送便捷方法
+- `SMSBatchXSendWithPhones` - 批量模板发送便捷方法
+- `SMSUnionSendWithConfig` - 国内外联合发送便捷方法
+
+### 查询和分析
+- `SMSBalance` - 余额查询
+- `SMSBalanceLog` - 余额变更日志查询
+- `SMSReports` - 分析报告
+- `SMSLog` - 历史明细查询
+- `SMSMO` - 上行回复查询
+
+### 模板和签名管理
+- `SMSTemplateGet` - 获取短信模板
+- `SMSTemplateCreate` - 创建短信模板
+- `SMSTemplateUpdate` - 更新短信模板
+- `SMSTemplateDelete` - 删除短信模板
+- `SMSSignatureQuery` - 查询短信签名
+- `SMSSignatureCreate` - 创建短信签名
+- `SMSSignatureUpdate` - 更新短信签名
+- `SMSSignatureDelete` - 删除短信签名
+
+### 工具功能
+- `ServiceTimestamp` - 获取服务器时间戳
+- `ServiceStatus` - 获取服务器状态
+- `GetCurrentTimestamp` - 获取当前时间戳（便捷方法）
+- `IsServiceRunning` - 检查服务运行状态（便捷方法）
+
+## 认证方式
+
+### 明文模式（推荐测试使用）
 ```go
-// 获取模板列表
-templates, err := service.GetSMSTemplates()
-
-// 创建模板
-resp, err := service.CreateSMSTemplate("您的验证码是{code}", 1)
-
-// 更新模板
-resp, err := service.UpdateSMSTemplate("template_id", "新的模板内容{code}", 1)
-
-// 删除模板
-resp, err := service.DeleteSMSTemplate("template_id")
-```
-
-### 8. 查询分析报告和历史记录
-
-```go
-// 查询分析报告
-reportsReq := &submail.SMSReportsRequest{
-    Project:   "test",
-    StartDate: "2024-01-01 00:00:00",
-    EndDate:   "2024-12-31 23:59:59",
-}
-reports, err := service.GetSMSReports(reportsReq)
-
-// 查询历史明细
-logReq := &submail.SMSLogRequest{
-    Project: "test",
-    Limit:   10,
-    Offset:  0,
-}
-logs, err := service.GetSMSLog(logReq)
-
-// 查询短信上行
-moReq := &submail.SMSMORequest{
-    StartDate: "2024-01-01 00:00:00",
-    EndDate:   "2024-12-31 23:59:59",
-    Limit:     10,
-}
-mo, err := service.GetSMSMO(moReq)
-```
-
-### 9. 响应格式设置
-
-```go
-// 获取当前响应格式
-format := service.GetFormat() // 返回 "json" 或 "xml"
-
-// 设置响应格式为XML
-service.SetFormat(submail.FormatXML)
-
-// 设置响应格式为JSON（默认）
-service.SetFormat(submail.FormatJSON)
-
-// 创建时指定格式
-serviceXML := submail.NewSaiyouServiceWithFormat(
-    "your_app_id",
-    "your_app_key", 
-    "your_signature",
-    submail.FormatXML,
-)
-```
-
-### 10. 签名调试
-
-```go
-// 用于调试签名问题
-params := url.Values{}
-params.Set("to", "13800138000")
-params.Set("text", "测试短信")
-
-signString, signature := service.ValidateSignature(params)
-fmt.Printf("签名字符串: %s\n", signString)
-fmt.Printf("计算签名: %s\n", signature)
-```
-
-## API 文档
-
-### 数据结构
-
-#### SMSRequest - 短信发送请求
-
-```go
-type SMSRequest struct {
-    To      string            // 收件人手机号码 (必填)
-    Text    string            // 短信正文 (必填)
-    Vars    map[string]string // 文本变量 (可选)
-    Project string            // 项目标记 (可选)
-    Tag     string            // 自定义标签 (可选)
+config := submail.Config{
+    AppID:          "your-app-id",
+    AppKey:         "your-app-key", 
+    UseDigitalSign: false,  // 明文模式
 }
 ```
 
-#### SMSXRequest - 模板短信发送请求
-
+### 数字签名模式（推荐生产使用）
 ```go
-type SMSXRequest struct {
-    To      string            // 收件人手机号码 (必填)
-    Project string            // 短信模板标记 (必填)
-    Vars    map[string]string // 文本变量 (可选)
-    Tag     string            // 自定义标签 (可选)
-}
-```
-
-#### SMSMultisendRequest - 短信一对多发送请求
-
-```go
-type SMSMultisendRequest struct {
-    Multi   []SMSMultiItem // 联系人列表 (必填)
-    Text    string         // 短信正文 (必填)
-    Project string         // 项目标记 (可选)
-}
-
-type SMSMultiItem struct {
-    To   string            // 收件人手机号 (必填)
-    Vars map[string]string // 个性化变量 (可选)
-}
-```
-
-#### SMSMultiXSendRequest - 短信模板一对多发送请求
-
-```go
-type SMSMultiXSendRequest struct {
-    Multi   []SMSMultiItem // 联系人列表 (必填)
-    Project string         // 短信模板标记 (必填)
-}
-```
-
-#### APIResponse - API响应
-
-```go
-type APIResponse struct {
-    Status string // 请求状态
-    Code   int    // 状态码
-    Msg    string // 响应消息
-    SendID string // 发送ID
-    Fee    int    // 消费费用
-    Sms    int    // 短信条数
-}
-```
-
-### 方法
-
-#### NewSaiyouService
-
-创建新的服务实例（默认JSON格式）。
-
-```go
-func NewSaiyouService(appID, appKey, signature string) *SaiyouService
-```
-
-#### NewSaiyouServiceWithFormat
-
-创建新的服务实例并指定响应格式。
-
-```go
-func NewSaiyouServiceWithFormat(appID, appKey, signature, format string) *SaiyouService
-```
-
-#### SetBaseURL
-
-设置自定义的 API 基础地址（用于私有部署）。
-
-```go
-func (s *SaiyouService) SetBaseURL(baseURL string)
-```
-
-#### SetFormat
-
-设置响应格式 (json 或 xml)。
-
-```go
-func (s *SaiyouService) SetFormat(format string)
-```
-
-#### GetFormat
-
-获取当前响应格式。
-
-```go
-func (s *SaiyouService) GetFormat() string
-```
-
-#### SendSMS
-
-发送普通短信。
-
-```go
-func (s *SaiyouService) SendSMS(req *SMSRequest) (*APIResponse, error)
-```
-
-#### SendSMSTemplate
-
-发送模板短信。
-
-```go
-func (s *SaiyouService) SendSMSTemplate(req *SMSXRequest) (*APIResponse, error)
-```
-
-#### GetBalance
-
-查询账户余额。
-
-```go
-func (s *SaiyouService) GetBalance() (*BalanceResponse, error)
-```
-
-#### SendSMSMulti
-
-发送短信一对多。
-
-```go
-func (s *SaiyouService) SendSMSMulti(req *SMSMultisendRequest) (*MultiSendResponse, error)
-```
-
-#### SendSMSMultiTemplate
-
-发送短信模板一对多。
-
-```go
-func (s *SaiyouService) SendSMSMultiTemplate(req *SMSMultiXSendRequest) (*MultiSendResponse, error)
-```
-
-#### GetSMSTemplates
-
-获取短信模板列表。
-
-```go
-func (s *SaiyouService) GetSMSTemplates() (*APIResponse, error)
-```
-
-#### CreateSMSTemplate
-
-创建短信模板。
-
-```go
-func (s *SaiyouService) CreateSMSTemplate(sms string, templateType int) (*APIResponse, error)
-```
-
-#### UpdateSMSTemplate
-
-更新短信模板。
-
-```go
-func (s *SaiyouService) UpdateSMSTemplate(templateID, sms string, templateType int) (*APIResponse, error)
-```
-
-#### DeleteSMSTemplate
-
-删除短信模板。
-
-```go
-func (s *SaiyouService) DeleteSMSTemplate(templateID string) (*APIResponse, error)
-```
-
-#### GetSMSReports
-
-获取短信分析报告。
-
-```go
-func (s *SaiyouService) GetSMSReports(req *SMSReportsRequest) (*APIResponse, error)
-```
-
-#### GetSMSLog
-
-查询短信历史明细。
-
-```go
-func (s *SaiyouService) GetSMSLog(req *SMSLogRequest) (*APIResponse, error)
-```
-
-#### GetSMSMO
-
-查询短信上行。
-
-```go
-func (s *SaiyouService) GetSMSMO(req *SMSMORequest) (*APIResponse, error)
-```
-
-#### GetTimestamp
-
-获取服务器时间戳。
-
-```go
-func (s *SaiyouService) GetTimestamp() (*APIResponse, error)
-```
-
-#### GetStatus
-
-获取服务器状态。
-
-```go
-func (s *SaiyouService) GetStatus() (*APIResponse, error)
-```
-
-#### SendSMSBatch
-
-短信批量群发。
-
-```go
-func (s *SaiyouService) SendSMSBatch(req *SMSBatchSendRequest) (*APIResponse, error)
-```
-
-**请求参数：**
-- `req.To`: 收件人手机号码列表
-- `req.Text`: 短信正文
-- `req.Project`: 项目标记（可选）
-- `req.Tag`: 自定义标签（可选）
-
-**示例：**
-```go
-req := &submail.SMSBatchSendRequest{
-    To:   []string{"13800138000", "13800138001", "13800138002"},
-    Text: "您的验证码是：123456，请勿泄露给他人。",
-    Project: "verification",
-    Tag:   "batch_send",
-}
-
-resp, err := service.SendSMSBatch(req)
-```
-
-#### SendSMSBatchTemplate
-
-短信批量模板群发。
-
-```go
-func (s *SaiyouService) SendSMSBatchTemplate(req *SMSBatchXSendRequest) (*APIResponse, error)
-```
-
-**请求参数：**
-- `req.To`: 收件人手机号码列表
-- `req.Project`: 短信模板标记
-- `req.Vars`: 文本变量（可选）
-- `req.Tag`: 自定义标签（可选）
-
-**示例：**
-```go
-req := &submail.SMSBatchXSendRequest{
-    To:      []string{"13800138000", "13800138001", "13800138002"},
-    Project: "verification_template",
-    Vars:    map[string]string{"code": "123456"},
-    Tag:     "batch_template",
-}
-
-resp, err := service.SendSMSBatchTemplate(req)
-```
-
-#### SendSMSUnion
-
-国内短信与国际短信联合发送。
-
-```go
-func (s *SaiyouService) SendSMSUnion(req *SMSUnionSendRequest) (*APIResponse, error)
-```
-
-**请求参数：**
-- `req.To`: 收件人手机号码
-- `req.Text`: 短信正文
-- `req.Project`: 项目标记（可选）
-- `req.Tag`: 自定义标签（可选）
-- `req.Country`: 国家代码（可选，不传默认为中国）
-
-**示例：**
-```go
-req := &submail.SMSUnionSendRequest{
-    To:      "13800138000",
-    Text:    "您的验证码是：123456，请勿泄露给他人。",
-    Tag:     "union_send",
-    Country: "US", // 美国
-}
-
-resp, err := service.SendSMSUnion(req)
-```
-
-#### SubscribeSMS
-
-短信订阅。
-
-```go
-func (s *SaiyouService) SubscribeSMS(to, project string) (*APIResponse, error)
-```
-
-**请求参数：**
-- `to`: 手机号码
-- `project`: 项目标记（可选）
-
-**示例：**
-```go
-resp, err := service.UnsubscribeSMS("13800138000", "newsletter")
-```
-
-#### UnsubscribeSMS
-
-短信退订。
-
-```go
-func (s *SaiyouService) UnsubscribeSMS(to, project string) (*APIResponse, error)
-```
-
-**请求参数：**
-- `to`: 手机号码
-- `project`: 项目标记（可选）
-
-**示例：**
-```go
-resp, err := service.SubscribeSMS("13800138000", "newsletter")
-```
-
-#### ValidateSignature
-
-验证签名（用于调试）。
-
-```go
-func (s *SaiyouService) ValidateSignature(params url.Values) (signString, signature string)
-```
-
-#### SyncServerTime
-
-手动同步服务器时间。当遇到时间相关错误时，可以主动调用此方法同步时间。
-
-```go
-func (s *SaiyouService) SyncServerTime() (int64, error)
-```
-
-**返回值：**
-- `int64`: 服务器时间戳
-- `error`: 错误信息
-
-**示例：**
-```go
-serverTime, err := service.SyncServerTime()
-if err != nil {
-    log.Printf("同步服务器时间失败: %v", err)
-} else {
-    fmt.Printf("服务器时间戳: %d\n", serverTime)
-}
-```
-
-#### GetTimeOffset
-
-获取本地时间与服务器时间的偏移量。
-
-```go
-func (s *SaiyouService) GetTimeOffset() (int64, error)
-```
-
-**返回值：**
-- `int64`: 时间偏移量（秒）
-  - 正值：本地时间快于服务器时间
-  - 负值：本地时间慢于服务器时间
-- `error`: 错误信息
-
-**示例：**
-```go
-offset, err := service.GetTimeOffset()
-if err != nil {
-    log.Printf("获取时间偏移量失败: %v", err)
-} else {
-    if offset > 0 {
-        fmt.Printf("本地时间快于服务器时间 %d 秒\n", offset)
-    } else if offset < 0 {
-        fmt.Printf("本地时间慢于服务器时间 %d 秒\n", -offset)
-    } else {
-        fmt.Println("本地时间与服务器时间同步")
-    }
+config := submail.Config{
+    AppID:          "your-app-id",
+    AppKey:         "your-app-key",
+    UseDigitalSign: true,           // 数字签名模式
+    SignType:       submail.SignTypeMD5, // MD5或SHA1
 }
 ```
 
 ## 错误处理
 
-SDK 会返回详细的错误信息，包括：
-
-- 参数验证错误
-- 网络请求错误  
-- API 响应错误
-- JSON 解析错误
-
-### 自动时间同步重试
-
-SDK 内置了智能重试机制，当遇到时间相关的鉴权错误时，会自动：
-
-1. 检测到时间相关错误（如签名过期、时间戳无效等）
-2. 调用服务器时间戳接口获取准确时间
-3. 使用服务器时间重新生成签名
-4. 自动重试原始请求
-
-这大大提高了SDK的容错性，减少了因时间差异导致的鉴权失败。
-
-### 手动时间同步
-
-如果遇到特殊的时间同步需求，也可以手动调用时间同步方法：
+SDK 提供完善的错误处理机制：
 
 ```go
-// 获取服务器时间戳
-serverTime, err := service.SyncServerTime()
-
-// 获取时间偏移量
-offset, err := service.GetTimeOffset()
-```
-
-```go
-resp, err := service.SendSMS(req)
+resp, err := client.SMSSend(req)
 if err != nil {
-    // 处理错误
-    log.Printf("发送短信失败: %v", err)
-    return
-}
-
-// 检查 API 响应状态
-if resp.Status != "success" {
-    log.Printf("API 调用失败: %s", resp.Msg)
-    return
+    // 检查是否为API错误
+    if apiErr, ok := err.(*submail.APIError); ok {
+        fmt.Printf("API错误 - 代码: %d, 消息: %s, 描述: %s\n", 
+            apiErr.Code, apiErr.Msg, apiErr.Description)
+    } else {
+        fmt.Printf("其他错误: %v\n", err)
+    }
 }
 ```
 
-## 配置选项
+## 响应处理
 
-### 响应格式配置
-
+### 单条发送响应
 ```go
-// 默认JSON格式
-service := submail.NewSaiyouService(appID, appKey, signature)
-
-// 指定XML格式
-serviceXML := submail.NewSaiyouServiceWithFormat(appID, appKey, signature, submail.FormatXML)
-
-// 动态切换格式
-service.SetFormat(submail.FormatXML)  // 切换到XML
-service.SetFormat(submail.FormatJSON) // 切换到JSON
+type SMSSendResponse struct {
+    Status string `json:"status"`   // 状态
+    SendID string `json:"send_id"`  // 发送ID
+    Fee    int    `json:"fee"`      // 费用
+    Sms    int    `json:"sms"`      // 短信条数
+}
 ```
 
-### 自定义超时时间
-
+### 多条发送响应
 ```go
-service := submail.NewSaiyouService(appID, appKey, signature)
-// 默认超时时间为 30 秒，如需自定义可通过反射或重构代码
+// 一对多发送响应处理
+multiResp, err := client.SMSMultiSend(req)
+if err == nil {
+    // 获取统计信息
+    success, failed, totalFee := multiResp.GetStatistics()
+    
+    // 获取成功的结果
+    successResults := multiResp.GetSuccessResults()
+    
+    // 获取失败的结果  
+    failedResults := multiResp.GetFailedResults()
+}
+
+// 批量发送响应处理
+batchResp, err := client.SMSBatchSend(req)
+if err == nil {
+    fmt.Printf("任务ID: %s\n", batchResp.BatchList)
+    success, failed, totalFee := batchResp.GetStatistics()
+}
 ```
 
-### 自定义 API 地址
+### 查询和分析功能
 
 ```go
-service.SetBaseURL("https://your-custom-api.example.com")
+// 1. 余额查询
+balanceResp, err := client.SMSBalance()
+if err == nil {
+    fmt.Printf("通用类余额: %s, 事务类余额: %s\n", 
+        balanceResp.Balance, balanceResp.TransactionalBalance)
+}
+
+// 2. 余额变更日志
+balanceLogResp, err := client.SMSBalanceLogLast7Days()
+if err == nil {
+    transactionalTotal, marketingTotal := balanceLogResp.GetTotalChanges()
+    fmt.Printf("最近7天变更 - 事务类: %d, 运营类: %d\n", 
+        transactionalTotal, marketingTotal)
+}
+
+// 3. 历史明细查询
+logResp, err := client.SMSLogLast7Days()
+if err == nil {
+    success, failed, pending, totalFee := logResp.GetLogStatistics()
+    fmt.Printf("最近7天统计 - 成功: %d, 失败: %d, 未知: %d, 费用: %d\n",
+        success, failed, pending, totalFee)
+    
+    // 按运营商统计
+    operatorStats := logResp.GetLogsByOperator()
+    // 失败原因分析
+    failureReasons := logResp.GetFailureReasons()
+}
+
+// 4. 上行回复查询
+moResp, err := client.SMSMOLast7Days()
+if err == nil {
+    total, validReplies, unsubscribes := moResp.GetMOStatistics()
+    fmt.Printf("上行统计 - 总数: %d, 有效回复: %d, 退订: %d\n",
+        total, validReplies, unsubscribes)
+    
+    // 获取退订回复
+    unsubscribeList := moResp.GetUnsubscribes()
+}
+
+// 5. 分析报告
+reportsResp, err := client.SMSReportsLast7Days()
+if err == nil {
+    successRate := reportsResp.Overview.GetSuccessRate()
+    failureRate := reportsResp.Overview.GetFailureRate()
+    fmt.Printf("成功率: %.2f%%, 失败率: %.2f%%\n", successRate, failureRate)
+    
+    // 运营商分布
+    totalOperators := reportsResp.GetTotalOperators()
+    // 地区分布
+    topProvinces := reportsResp.GetTopProvinces(5)
+}
 ```
 
-## 示例代码
+### 模板和签名管理
 
-完整的示例代码请查看 `example/main.go` 文件。
+```go
+// 1. 模板管理
+templates, err := client.SMSTemplateGet(&submail.SMSTemplateGetRequest{})
+if err == nil {
+    for _, template := range templates.Templates {
+        status := submail.GetTemplateStatus(template.TemplateStatus)
+        fmt.Printf("模板 %s: %s (%s)\n", 
+            template.TemplateID, template.SMSTitle, status)
+    }
+}
 
-## 支持的功能
+// 2. 签名管理
+signatures, err := client.SMSSignatureQuery(&submail.SMSSignatureQueryRequest{})
+if err == nil {
+    for _, sig := range signatures.SMSSignature {
+        status := submail.GetSignatureStatus(sig.Status)
+        fmt.Printf("签名 %s: %s\n", sig.SMSSignature, status)
+    }
+}
+```
 
-- [x] 短信发送 (SMS/Send)
-- [x] 模板短信发送 (SMS/XSend)
-- [x] 短信一对多发送 (SMS/Multisend)
-- [x] 模板短信一对多发送 (SMS/MultiXSend)
-- [x] 短信批量群发 (SMS/BatchSend)
-- [x] 短信批量模板群发 (SMS/BatchXSend)
-- [x] 国内短信与国际短信联合发送 (SMS/UnionSend)
-- [x] 短信模板管理 (SMS/Template)
-- [x] 短信分析报告 (SMS/Reports)
-- [x] 历史明细查询 (SMS/Log)
-- [x] 短信上行查询 (SMS/MO)
-- [x] 账户余额查询 (SMS/Balance)
-- [x] 短信订阅管理 (AddressBook/SMS/Subscribe)
-- [x] 短信退订管理 (AddressBook/SMS/Unsubscribe)
-- [x] 服务器状态查询 (Service/Status)
-- [x] 时间戳获取 (Service/Timestamp)
+### 服务状态监控
 
-## 参考文档
+```go
+// 1. 服务器时间戳
+timestampResp, err := client.ServiceTimestamp()
+if err == nil {
+    serverTime := time.Unix(timestampResp.Timestamp, 0)
+    fmt.Printf("服务器时间: %s\n", serverTime.Format("2006-01-02 15:04:05"))
+}
 
-- [SUBMAIL 官方文档](https://www.mysubmail.com/documents/LJ4xa2)
-- [API 授权验证机制](https://www.mysubmail.com/documents/VBcbe)
+// 2. 服务器状态
+statusResp, err := client.ServiceStatus()
+if err == nil {
+    fmt.Printf("服务状态: %s\n", statusResp.GetStatusDescription())
+    fmt.Printf("性能等级: %s\n", statusResp.GetPerformanceLevel())
+    fmt.Printf("是否健康: %t\n", statusResp.IsHealthy())
+}
+```
+
+## 最佳实践
+
+### 1. 生产环境配置
+```go
+config := submail.Config{
+    AppID:          "your-app-id",
+    AppKey:         "your-app-key",
+    UseDigitalSign: true,                    // 使用数字签名
+    SignType:       submail.SignTypeMD5,     // MD5签名
+    Timeout:        30 * time.Second,        // 合理的超时时间
+}
+```
+
+### 2. 错误重试机制
+```go
+func sendSMSWithRetry(client *submail.Client, req *submail.SMSSendRequest, maxRetries int) (*submail.SMSSendResponse, error) {
+    var lastErr error
+    for i := 0; i < maxRetries; i++ {
+        resp, err := client.SMSSend(req)
+        if err == nil {
+            return resp, nil
+        }
+        lastErr = err
+        time.Sleep(time.Second * time.Duration(i+1)) // 递增延迟
+    }
+    return nil, lastErr
+}
+```
+
+### 3. 批量发送优化
+```go
+// 对于大量号码，建议分批处理
+func sendBatchInChunks(client *submail.Client, content string, phones []string, chunkSize int) {
+    for i := 0; i < len(phones); i += chunkSize {
+        end := i + chunkSize
+        if end > len(phones) {
+            end = len(phones)
+        }
+        
+        chunk := phones[i:end]
+        resp, err := client.SMSBatchSendWithPhones(content, chunk, "batch")
+        if err != nil {
+            log.Printf("批次 %d 发送失败: %v", i/chunkSize+1, err)
+        } else {
+            success, failed, fee := resp.GetStatistics()
+            log.Printf("批次 %d 完成 - 成功: %d, 失败: %d, 费用: %d", 
+                i/chunkSize+1, success, failed, fee)
+        }
+    }
+}
+```
+
+## 发送模式对比
+
+| 模式 | API | 适用场景 | 最大数量 | 个性化 | 特殊功能 |
+|------|-----|----------|----------|--------|----------|
+| 单条发送 | SMSSend/SMSXSend | 单个用户 | 1 | ✅ | 支持变量 |
+| 一对多发送 | SMSMultiSend/SMSMultiXSend | 少量个性化 | 50-200 | ✅ | 每用户不同变量 |
+| 批量群发 | SMSBatchSend/SMSBatchXSend | 大量相同内容 | 10000 | ❌ | 高效群发 |
+| 联合发送 | SMSUnionSend | 国内外混发 | 1 | ✅ | 自动识别国内外 |
+
+## 常见问题
+
+### Q: 如何选择发送模式？
+- **单条发送**：适合实时验证码、通知等
+- **一对多发送**：适合需要个性化内容的场景，如取货通知
+- **批量群发**：适合营销短信、系统通知等大量相同内容
+- **联合发送**：适合需要同时向国内外用户发送的场景
+
+### Q: 明文模式和数字签名模式的区别？
+- **明文模式**：简单快速，适合测试环境
+- **数字签名模式**：更安全，适合生产环境，支持MD5和SHA1
+
+### Q: 如何处理发送失败？
+- 检查错误码和错误信息（支持100+错误码）
+- 实现重试机制
+- 记录失败日志便于分析
+- 使用历史明细查询API分析失败原因
+
+### Q: 如何监控短信发送效果？
+- 使用 `SMSReports` 查看分析报告（成功率、运营商分布等）
+- 使用 `SMSLog` 查询历史明细
+- 使用 `SMSMO` 查询用户回复和退订情况
+- 使用 `SMSBalance` 监控余额变化
+
+### Q: 如何管理短信模板和签名？
+- 使用模板管理API：`SMSTemplateGet`、`SMSTemplateCreate`、`SMSTemplateUpdate`、`SMSTemplateDelete`
+- 使用签名管理API：`SMSSignatureQuery`、`SMSSignatureCreate`、`SMSSignatureUpdate`、`SMSSignatureDelete`
+- 支持动态签名功能（v4.002新增）
+
+### Q: 变量功能如何使用？
+- 文本变量：`@var(变量名)`，支持个性化内容
+- 日期变量：`@date()` 或 `@date(格式)`，自动填充时间
+- 支持变量验证和提取功能
+- 可设置时区：`client.SetTimezone("Asia/Shanghai")`
+
+## 版本更新
+
+### v1.0.2 (2025-08-19)
+- ✅ 完整的短信发送功能（单发、一对多、批量、联合发送）
+- ✅ 动态短信签名支持（v4.002）
+- ✅ 完善的变量处理功能（文本变量 + 日期变量）
+- ✅ 短信模板和签名管理
+- ✅ 余额查询和变更日志
+- ✅ 历史明细查询和分析
+- ✅ 短信上行回复查询
+- ✅ 统计分析报告
+- ✅ 服务状态监控
+- ✅ 完善的错误处理（100+错误码定义）
+- ✅ 丰富的便捷方法和数据处理功能
+- ✅ 支持明文和数字签名两种认证方式
 
 ## 许可证
 
-本项目采用 Apache 2.0 许可证，详见 LICENSE 文件。
+MIT License
 
-## 贡献
+## 支持
 
-欢迎提交 Issue 和 Pull Request 来改进这个项目。
+- 官方文档：https://www.mysubmail.com/documents/
+- 技术支持：4008-753-365
+- 邮箱支持：service@submail.cn
+
+---
+
+**注意**：使用前请确保已在 [SUBMAIL 控制台](https://www.mysubmail.com) 创建应用并获取 App ID 和 App Key。
