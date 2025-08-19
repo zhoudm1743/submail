@@ -2,6 +2,7 @@ package submail
 
 import (
 	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -115,31 +116,33 @@ func createHTTPClientWithPool(config *ConnectionPoolConfig) *http.Client {
 
 // SaiyouService SUBMAIL赛邮服务结构体
 type SaiyouService struct {
-	AppID      string                // App ID (应用ID)
-	AppKey     string                // App Key (应用密钥，用于签名计算)
-	Signature  string                // App Signature (应用签名标识，非密钥)
-	BaseURL    string                // API基础URL
-	client     *http.Client          // HTTP客户端
-	format     string                // 响应格式 (json/xml)
-	poolConfig *ConnectionPoolConfig // 连接池配置
+	AppID          string                // App ID (应用ID)
+	AppKey         string                // App Key (应用密钥，用于签名计算)
+	BaseURL        string                // API基础URL
+	client         *http.Client          // HTTP客户端
+	format         string                // 响应格式 (json/xml)
+	poolConfig     *ConnectionPoolConfig // 连接池配置
+	useDigitalSign bool                  // 是否使用数字签名模式，false为明文模式
+	signType       string                // 签名类型：md5 或 sha1，仅数字签名模式使用
 }
 
-// NewSaiyouService 创建新的赛邮服务实例（使用默认连接池配置）
-func NewSaiyouService(appID, appKey, signature string) *SaiyouService {
+// NewSaiyouService 创建新的赛邮服务实例（使用默认连接池配置，默认数字签名模式）
+func NewSaiyouService(appID, appKey string) *SaiyouService {
 	poolConfig := DefaultConnectionPoolConfig()
 	return &SaiyouService{
-		AppID:      appID,
-		AppKey:     appKey,
-		Signature:  signature,
-		BaseURL:    DefaultBaseURL,
-		client:     createHTTPClientWithPool(poolConfig),
-		format:     FormatJSON, // 默认使用JSON格式
-		poolConfig: poolConfig,
+		AppID:          appID,
+		AppKey:         appKey,
+		BaseURL:        DefaultBaseURL,
+		client:         createHTTPClientWithPool(poolConfig),
+		format:         FormatJSON, // 默认使用JSON格式
+		poolConfig:     poolConfig,
+		useDigitalSign: true,  // 默认使用数字签名模式
+		signType:       "md5", // 默认使用MD5签名
 	}
 }
 
-// NewSaiyouServiceWithFormat 创建新的赛邮服务实例并指定响应格式（使用默认连接池配置）
-func NewSaiyouServiceWithFormat(appID, appKey, signature, format string) *SaiyouService {
+// NewSaiyouServiceWithFormat 创建新的赛邮服务实例并指定响应格式（使用默认连接池配置，默认数字签名模式）
+func NewSaiyouServiceWithFormat(appID, appKey, format string) *SaiyouService {
 	// 验证格式参数
 	if format != FormatJSON && format != FormatXML {
 		format = FormatJSON // 无效格式时使用默认JSON
@@ -147,35 +150,37 @@ func NewSaiyouServiceWithFormat(appID, appKey, signature, format string) *Saiyou
 
 	poolConfig := DefaultConnectionPoolConfig()
 	return &SaiyouService{
-		AppID:      appID,
-		AppKey:     appKey,
-		Signature:  signature,
-		BaseURL:    DefaultBaseURL,
-		client:     createHTTPClientWithPool(poolConfig),
-		format:     format,
-		poolConfig: poolConfig,
+		AppID:          appID,
+		AppKey:         appKey,
+		BaseURL:        DefaultBaseURL,
+		client:         createHTTPClientWithPool(poolConfig),
+		format:         format,
+		poolConfig:     poolConfig,
+		useDigitalSign: true,  // 默认使用数字签名模式
+		signType:       "md5", // 默认使用MD5签名
 	}
 }
 
-// NewSaiyouServiceWithPool 创建新的赛邮服务实例并指定连接池配置
-func NewSaiyouServiceWithPool(appID, appKey, signature string, poolConfig *ConnectionPoolConfig) *SaiyouService {
+// NewSaiyouServiceWithPool 创建新的赛邮服务实例并指定连接池配置（默认数字签名模式）
+func NewSaiyouServiceWithPool(appID, appKey string, poolConfig *ConnectionPoolConfig) *SaiyouService {
 	if poolConfig == nil {
 		poolConfig = DefaultConnectionPoolConfig()
 	}
 
 	return &SaiyouService{
-		AppID:      appID,
-		AppKey:     appKey,
-		Signature:  signature,
-		BaseURL:    DefaultBaseURL,
-		client:     createHTTPClientWithPool(poolConfig),
-		format:     FormatJSON, // 默认使用JSON格式
-		poolConfig: poolConfig,
+		AppID:          appID,
+		AppKey:         appKey,
+		BaseURL:        DefaultBaseURL,
+		client:         createHTTPClientWithPool(poolConfig),
+		format:         FormatJSON, // 默认使用JSON格式
+		poolConfig:     poolConfig,
+		useDigitalSign: true,  // 默认使用数字签名模式
+		signType:       "md5", // 默认使用MD5签名
 	}
 }
 
-// NewSaiyouServiceWithPoolAndFormat 创建新的赛邮服务实例并指定连接池配置和响应格式
-func NewSaiyouServiceWithPoolAndFormat(appID, appKey, signature, format string, poolConfig *ConnectionPoolConfig) *SaiyouService {
+// NewSaiyouServiceWithPoolAndFormat 创建新的赛邮服务实例并指定连接池配置和响应格式（默认数字签名模式）
+func NewSaiyouServiceWithPoolAndFormat(appID, appKey, format string, poolConfig *ConnectionPoolConfig) *SaiyouService {
 	// 验证格式参数
 	if format != FormatJSON && format != FormatXML {
 		format = FormatJSON // 无效格式时使用默认JSON
@@ -186,13 +191,14 @@ func NewSaiyouServiceWithPoolAndFormat(appID, appKey, signature, format string, 
 	}
 
 	return &SaiyouService{
-		AppID:      appID,
-		AppKey:     appKey,
-		Signature:  signature,
-		BaseURL:    DefaultBaseURL,
-		client:     createHTTPClientWithPool(poolConfig),
-		format:     format,
-		poolConfig: poolConfig,
+		AppID:          appID,
+		AppKey:         appKey,
+		BaseURL:        DefaultBaseURL,
+		client:         createHTTPClientWithPool(poolConfig),
+		format:         format,
+		poolConfig:     poolConfig,
+		useDigitalSign: true,  // 默认使用数字签名模式
+		signType:       "md5", // 默认使用MD5签名
 	}
 }
 
@@ -206,6 +212,40 @@ func (s *SaiyouService) SetFormat(format string) {
 	if format == FormatJSON || format == FormatXML {
 		s.format = format
 	}
+}
+
+// NewSaiyouServiceWithPlaintextAuth 创建使用明文验证模式的赛邮服务实例
+func NewSaiyouServiceWithPlaintextAuth(appID, appKey string) *SaiyouService {
+	poolConfig := DefaultConnectionPoolConfig()
+	return &SaiyouService{
+		AppID:          appID,
+		AppKey:         appKey,
+		BaseURL:        DefaultBaseURL,
+		client:         createHTTPClientWithPool(poolConfig),
+		format:         FormatJSON,
+		poolConfig:     poolConfig,
+		useDigitalSign: false, // 使用明文验证模式
+		signType:       "",    // 明文模式不需要签名类型
+	}
+}
+
+// SetAuthMode 设置验证模式
+func (s *SaiyouService) SetAuthMode(useDigitalSign bool, signType string) {
+	s.useDigitalSign = useDigitalSign
+	if useDigitalSign {
+		if signType == "md5" || signType == "sha1" {
+			s.signType = signType
+		} else {
+			s.signType = "md5" // 默认使用MD5
+		}
+	} else {
+		s.signType = "" // 明文模式不需要签名类型
+	}
+}
+
+// GetAuthMode 获取当前验证模式
+func (s *SaiyouService) GetAuthMode() (useDigitalSign bool, signType string) {
+	return s.useDigitalSign, s.signType
 }
 
 // GetFormat 获取当前响应格式
@@ -245,20 +285,31 @@ func (s *SaiyouService) CloseIdleConnections() {
 
 // generateSignature 生成API签名
 // SUBMAIL API 签名算法：
-// 1. 添加 appid 和 timestamp
+// 明文模式：直接返回 appkey
+// 数字签名模式：
+// 1. 添加 appid 和 timestamp，排除 tag 参数
 // 2. 将所有参数按键名字典序排序
 // 3. 按 key=value&key=value... 格式拼接
-// 4. 最后拼接 &signature=app_key
-// 5. 对整个字符串进行MD5哈希
+// 4. 拼接为：appid + appkey + signature_string + appid + appkey
+// 5. 对整个字符串进行MD5或SHA1哈希
 func (s *SaiyouService) generateSignature(params url.Values) string {
+	// 明文验证模式：直接返回 appkey
+	if !s.useDigitalSign {
+		return s.AppKey
+	}
+
+	// 数字签名模式
 	// 添加必要的公共参数
 	params.Set("appid", s.AppID)
 	params.Set("timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 
-	// 获取所有参数键并按字典序排序
+	// 获取所有参数键并按字典序排序，排除 signature 和 tag 参数
 	keys := make([]string, 0, len(params))
 	for key := range params {
-		keys = append(keys, key)
+		// tag 参数不参与签名计算
+		if key != "signature" && key != "tag" {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 
@@ -269,27 +320,42 @@ func (s *SaiyouService) generateSignature(params url.Values) string {
 		signParts = append(signParts, key+"="+value)
 	}
 
-	// 拼接所有参数
-	signStr := strings.Join(signParts, "&")
+	// 拼接参数字符串
+	signatureString := strings.Join(signParts, "&")
 
-	// 最后拼接 &signature=app_key (这里使用AppKey，不是Signature字段)
-	signStr += "&signature=" + s.AppKey
+	// 按照SUBMAIL官方要求：appid + appkey + signature_string + appid + appkey
+	finalString := s.AppID + s.AppKey + signatureString + s.AppID + s.AppKey
 
-	// 计算MD5哈希并转为小写十六进制
-	hash := md5.Sum([]byte(signStr))
-	return hex.EncodeToString(hash[:])
+	// 根据签名类型计算哈希
+	if s.signType == "sha1" {
+		hash := sha1.Sum([]byte(finalString))
+		return hex.EncodeToString(hash[:])
+	} else {
+		// 默认使用MD5
+		hash := md5.Sum([]byte(finalString))
+		return hex.EncodeToString(hash[:])
+	}
 }
 
 // generateSignatureWithTimestamp 使用指定时间戳生成API签名
 func (s *SaiyouService) generateSignatureWithTimestamp(params url.Values, timestamp int64) string {
+	// 明文验证模式：直接返回 appkey
+	if !s.useDigitalSign {
+		return s.AppKey
+	}
+
+	// 数字签名模式
 	// 添加必要的公共参数
 	params.Set("appid", s.AppID)
 	params.Set("timestamp", strconv.FormatInt(timestamp, 10))
 
-	// 获取所有参数键并按字典序排序
+	// 获取所有参数键并按字典序排序，排除 signature 和 tag 参数
 	keys := make([]string, 0, len(params))
 	for key := range params {
-		keys = append(keys, key)
+		// tag 参数不参与签名计算
+		if key != "signature" && key != "tag" {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 
@@ -300,15 +366,21 @@ func (s *SaiyouService) generateSignatureWithTimestamp(params url.Values, timest
 		signParts = append(signParts, key+"="+value)
 	}
 
-	// 拼接所有参数
-	signStr := strings.Join(signParts, "&")
+	// 拼接参数字符串
+	signatureString := strings.Join(signParts, "&")
 
-	// 最后拼接 &signature=app_key (这里使用AppKey，不是Signature字段)
-	signStr += "&signature=" + s.AppKey
+	// 按照SUBMAIL官方要求：appid + appkey + signature_string + appid + appkey
+	finalString := s.AppID + s.AppKey + signatureString + s.AppID + s.AppKey
 
-	// 计算MD5哈希并转为小写十六进制
-	hash := md5.Sum([]byte(signStr))
-	return hex.EncodeToString(hash[:])
+	// 根据签名类型计算哈希
+	if s.signType == "sha1" {
+		hash := sha1.Sum([]byte(finalString))
+		return hex.EncodeToString(hash[:])
+	} else {
+		// 默认使用MD5
+		hash := md5.Sum([]byte(finalString))
+		return hex.EncodeToString(hash[:])
+	}
 }
 
 // ValidateSignature 验证签名（用于调试）
@@ -320,14 +392,23 @@ func (s *SaiyouService) ValidateSignature(params url.Values) (signString, signat
 		paramsCopy[k] = v
 	}
 
+	// 明文验证模式
+	if !s.useDigitalSign {
+		return "明文模式，无需签名字符串", s.AppKey
+	}
+
+	// 数字签名模式
 	// 添加必要的公共参数
 	paramsCopy.Set("appid", s.AppID)
 	paramsCopy.Set("timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 
-	// 获取所有参数键并按字典序排序
+	// 获取所有参数键并按字典序排序，排除 signature 和 tag 参数
 	keys := make([]string, 0, len(paramsCopy))
 	for key := range paramsCopy {
-		keys = append(keys, key)
+		// tag 参数不参与签名计算
+		if key != "signature" && key != "tag" {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 
@@ -338,11 +419,21 @@ func (s *SaiyouService) ValidateSignature(params url.Values) (signString, signat
 		signParts = append(signParts, key+"="+value)
 	}
 
-	signString = strings.Join(signParts, "&") + "&signature=" + s.AppKey
+	// 拼接参数字符串
+	signatureString := strings.Join(signParts, "&")
 
-	// 计算签名
-	hash := md5.Sum([]byte(signString))
-	signature = hex.EncodeToString(hash[:])
+	// 按照SUBMAIL官方要求：appid + appkey + signature_string + appid + appkey
+	signString = s.AppID + s.AppKey + signatureString + s.AppID + s.AppKey
+
+	// 根据签名类型计算哈希
+	if s.signType == "sha1" {
+		hash := sha1.Sum([]byte(signString))
+		signature = hex.EncodeToString(hash[:])
+	} else {
+		// 默认使用MD5
+		hash := md5.Sum([]byte(signString))
+		signature = hex.EncodeToString(hash[:])
+	}
 
 	return signString, signature
 }
@@ -414,6 +505,11 @@ func (s *SaiyouService) doRequest(endpoint string, params url.Values) (*APIRespo
 
 // doRequestWithRetry 执行HTTP请求，支持时间同步重试
 func (s *SaiyouService) doRequestWithRetry(endpoint string, params url.Values, isRetry bool) (*APIResponse, error) {
+	// 数字签名模式需要添加 sign_type 参数
+	if s.useDigitalSign {
+		params.Set("sign_type", s.signType)
+	}
+
 	// 生成签名
 	signature := s.generateSignature(params)
 	params.Set("signature", signature)
@@ -465,25 +561,6 @@ func (s *SaiyouService) doRequestWithRetry(endpoint string, params url.Values, i
 	}
 
 	return &apiResp, nil
-}
-
-// isTimeAuthError 检查是否为时间相关的鉴权错误
-func (s *SaiyouService) isTimeAuthError(resp *APIResponse) bool {
-	// 使用集中定义的错误码判定
-	if IsTimeRelatedError(resp.Code) {
-		return true
-	}
-
-	// 检查错误消息中是否包含时间相关关键词
-	timeKeywords := []string{"时间", "timestamp", "时间戳", "过期", "expired", "invalid"}
-	msg := strings.ToLower(resp.Msg)
-	for _, keyword := range timeKeywords {
-		if strings.Contains(msg, strings.ToLower(keyword)) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // retryWithServerTimestamp 使用服务器时间戳重试请求
@@ -606,6 +683,11 @@ func (s *SaiyouService) SendSMSTemplate(req *SMSXRequest) (*APIResponse, error) 
 func (s *SaiyouService) GetBalance() (*BalanceResponse, error) {
 	params := url.Values{}
 
+	// 数字签名模式需要添加 sign_type 参数
+	if s.useDigitalSign {
+		params.Set("sign_type", s.signType)
+	}
+
 	// 生成签名
 	signature := s.generateSignature(params)
 	params.Set("signature", signature)
@@ -704,6 +786,11 @@ func (s *SaiyouService) SendSMSMultiTemplate(req *SMSMultiXSendRequest) (*MultiS
 
 // doMultiRequest 执行一对多发送HTTP请求
 func (s *SaiyouService) doMultiRequest(endpoint string, params url.Values) (*MultiSendResponse, error) {
+	// 数字签名模式需要添加 sign_type 参数
+	if s.useDigitalSign {
+		params.Set("sign_type", s.signType)
+	}
+
 	// 生成签名
 	signature := s.generateSignature(params)
 	params.Set("signature", signature)

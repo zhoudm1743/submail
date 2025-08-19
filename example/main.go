@@ -24,21 +24,29 @@ import (
 )
 
 func main() {
-	// 创建SUBMAIL服务实例（默认JSON格式，使用默认连接池配置）
-	// 请替换为您的实际AppID、AppKey和Signature
+	// 创建SUBMAIL服务实例（默认JSON格式，使用默认连接池配置，数字签名模式）
+	// 请替换为您的实际AppID和AppKey
 	service := submail.NewSaiyouService(
 		"your_app_id",
 		"your_app_key",
-		"your_signature",
 	)
+
+	// 或者创建使用明文验证模式的服务实例（更简单，但安全性较低）
+	// servicePlaintext := submail.NewSaiyouServiceWithPlaintextAuth(
+	//     "your_app_id",
+	//     "your_app_key",
+	// )
 
 	// 或者创建指定XML格式的服务实例
 	// serviceXML := submail.NewSaiyouServiceWithFormat(
 	//     "your_app_id",
 	//     "your_app_key",
-	//     "your_signature",
 	//     submail.FormatXML,
 	// )
+
+	// 动态切换验证模式示例
+	// service.SetAuthMode(false, "") // 切换为明文模式
+	// service.SetAuthMode(true, "sha1") // 切换为SHA1数字签名模式
 
 	// 示例: 使用自定义连接池配置创建服务实例
 	// customPoolConfig := &submail.ConnectionPoolConfig{
@@ -56,7 +64,6 @@ func main() {
 	// serviceWithPool := submail.NewSaiyouServiceWithPool(
 	//     "your_app_id",
 	//     "your_app_key",
-	//     "your_signature",
 	//     customPoolConfig,
 	// )
 
