@@ -1,13 +1,16 @@
 package submail
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -557,6 +560,153 @@ func (c *Client) doJSONRequestWithBaseURL(method, endpoint string, data interfac
 	return c.doRequestWithBaseURL(method, endpoint, params, baseURL)
 }
 
+// doMultipartFormRequest 执行multipart表单请求（处理结构体中的FileHeader）
+func (c *Client) doMultipartFormRequest(method, endpoint string, formData interface{}) ([]byte, error) {
+	return c.doMultipartFormRequestWithBaseURL(method, endpoint, formData, c.BaseURL)
+}
+
+// doMultipartFormRequestWithBaseURL 使用指定基础URL执行multipart表单请求
+func (c *Client) doMultipartFormRequestWithBaseURL(method, endpoint string, formData interface{}, baseURL string) ([]byte, error) {
+	// 构建URL
+	requestURL := baseURL + endpoint
+	if c.format == FormatXML {
+		requestURL += ".xml"
+	} else {
+		requestURL += ".json"
+	}
+
+	// 创建multipart writer
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	// 使用反射处理结构体字段
+	v := reflect.ValueOf(formData)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	t := v.Type()
+
+	params := make(map[string]string)
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+
+		// 获取form标签
+		formTag := fieldType.Tag.Get("form")
+		if formTag == "" || formTag == "-" {
+			continue
+		}
+
+		// 处理omitempty
+		if strings.Contains(formTag, "omitempty") {
+			formTag = strings.Replace(formTag, ",omitempty", "", -1)
+			if field.IsZero() {
+				continue
+			}
+		}
+
+		// 处理文件字段
+		if field.Type() == reflect.TypeOf([]multipart.FileHeader{}) {
+			fileHeaders := field.Interface().([]multipart.FileHeader)
+			for _, fh := range fileHeaders {
+				file, err := fh.Open()
+				if err != nil {
+					return nil, fmt.Errorf("打开文件失败: %v", err)
+				}
+				defer file.Close()
+
+				fileWriter, err := writer.CreateFormFile(formTag, fh.Filename)
+				if err != nil {
+					return nil, fmt.Errorf("创建文件字段失败: %v", err)
+				}
+
+				if _, err := io.Copy(fileWriter, file); err != nil {
+					return nil, fmt.Errorf("写入文件数据失败: %v", err)
+				}
+			}
+		} else {
+			// 处理普通字段
+			var value string
+			switch field.Kind() {
+			case reflect.String:
+				value = field.String()
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				if field.Int() != 0 {
+					value = strconv.FormatInt(field.Int(), 10)
+				}
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				if field.Uint() != 0 {
+					value = strconv.FormatUint(field.Uint(), 10)
+				}
+			case reflect.Float32, reflect.Float64:
+				if field.Float() != 0 {
+					value = strconv.FormatFloat(field.Float(), 'f', -1, 64)
+				}
+			case reflect.Bool:
+				value = strconv.FormatBool(field.Bool())
+			default:
+				value = fmt.Sprintf("%v", field.Interface())
+			}
+
+			if value != "" {
+				params[formTag] = value
+			}
+		}
+	}
+
+	// 添加认证参数
+	if err := c.buildAuthParams(params); err != nil {
+		return nil, err
+	}
+
+	// 添加普通表单字段
+	for key, value := range params {
+		if err := writer.WriteField(key, value); err != nil {
+			return nil, fmt.Errorf("添加表单字段失败: %v", err)
+		}
+	}
+
+	// 关闭multipart writer
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("关闭multipart writer失败: %v", err)
+	}
+
+	// 创建HTTP请求
+	req, err := http.NewRequest(method, requestURL, &body)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// 设置Content-Type
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 执行请求
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("执行请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	// 检查HTTP状态码
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP错误: %d - %s", resp.StatusCode, string(responseBody))
+	}
+
+	// 检查API错误
+	if err := ParseAPIError(responseBody); err != nil {
+		return nil, err
+	}
+
+	return responseBody, nil
+}
+
 // ===== 工具类API =====
 
 // ServiceTimestamp 获取服务器时间戳
@@ -874,7 +1024,12 @@ func (c *Client) SMSSignatureCreate(req *SMSSignatureCreateRequest) (*SMSSignatu
 		return nil, fmt.Errorf("请求参数不能为空")
 	}
 
-	body, err := c.doJSONRequest("POST", EndpointSMSAppextend, req)
+	// 检查必填的文件参数
+	if len(req.Attachments) == 0 {
+		return nil, fmt.Errorf("必须提供证明材料文件")
+	}
+
+	body, err := c.doMultipartFormRequest("POST", EndpointSMSAppextend, req)
 	if err != nil {
 		return nil, err
 	}
@@ -893,17 +1048,68 @@ func (c *Client) SMSSignatureUpdate(req *SMSSignatureUpdateRequest) (*SMSSignatu
 		return nil, fmt.Errorf("请求参数不能为空")
 	}
 
-	body, err := c.doJSONRequest("PUT", EndpointSMSAppextend, req)
-	if err != nil {
-		return nil, err
+	if req.SMSSignature == "" {
+		return nil, fmt.Errorf("短信签名不能为空")
 	}
 
-	var resp SMSSignatureOperationResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("解析短信签名更新响应失败: %v", err)
-	}
+	// 检查是否需要上传文件
+	if len(req.Attachments) > 0 {
+		// 使用multipart请求
+		body, err := c.doMultipartFormRequest("PUT", EndpointSMSAppextend, req)
+		if err != nil {
+			return nil, err
+		}
 
-	return &resp, nil
+		var resp SMSSignatureOperationResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return nil, fmt.Errorf("解析短信签名更新响应失败: %v", err)
+		}
+
+		return &resp, nil
+	} else {
+		// 不需要上传文件，使用普通请求
+		params := map[string]string{
+			"sms_signature": req.SMSSignature,
+		}
+
+		// 添加可选参数
+		if req.Company != "" {
+			params["company"] = req.Company
+		}
+		if req.CompanyLisenceCode != "" {
+			params["company_lisence_code"] = req.CompanyLisenceCode
+		}
+		if req.LegalName != "" {
+			params["legal_name"] = req.LegalName
+		}
+		if req.AgentName != "" {
+			params["agent_name"] = req.AgentName
+		}
+		if req.AgentID != "" {
+			params["agent_id"] = req.AgentID
+		}
+		if req.AgentMob != "" {
+			params["agent_mob"] = req.AgentMob
+		}
+		if req.SourceType != 0 {
+			params["source_type"] = strconv.Itoa(req.SourceType)
+		}
+		if req.Contact != "" {
+			params["contact"] = req.Contact
+		}
+
+		body, err := c.doRequest("PUT", EndpointSMSAppextend, params)
+		if err != nil {
+			return nil, err
+		}
+
+		var resp SMSSignatureOperationResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return nil, fmt.Errorf("解析短信签名更新响应失败: %v", err)
+		}
+
+		return &resp, nil
+	}
 }
 
 // SMSSignatureDelete 删除短信签名

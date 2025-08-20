@@ -690,20 +690,29 @@ func main() {
 
 	// 创建新签名（需要提供真实的企业信息和证明材料）
 	fmt.Println("\n创建新签名（示例，需要真实信息）:")
+
+	// 注意：实际使用时，您需要从HTTP请求中获取multipart.FileHeader
+	// 这里只是展示结构体的定义，实际不能执行
 	createReq := &submail.SMSSignatureCreateRequest{
 		SMSSignature:       "新测试签名", // 可省略【】符号
 		Company:            "测试公司有限公司",
 		CompanyLisenceCode: "91000000000000000X",
 		LegalName:          "张三",
-		Attachments:        "/path/to/business_license.jpg", // 营业执照文件路径
-		AgentName:          "李四",
-		AgentID:            "110000000000000000",
-		AgentMob:           "13800138000",
-		SourceType:         0, // 0=营业执照
-		Contact:            "13800138000",
+		// Attachments:        fileHeaders,  // 从HTTP表单获取的[]multipart.FileHeader
+		AgentName:  "李四",
+		AgentID:    "110000000000000000",
+		AgentMob:   "13800138000",
+		SourceType: 0, // 0=营业执照、1=商标、2=APP
+		Contact:    "13800138000",
 	}
 
-	// 注意：这里只是演示，实际使用时需要提供真实的企业信息
+	// 实际使用示例（在Web服务器中）:
+	// r.ParseMultipartForm(32 << 20) // 32MB
+	// form := r.MultipartForm
+	// files := form.File["attachments"]
+	// createReq.Attachments = files
+
+	// 注意：这里只是演示结构体，实际使用时需要提供真实的企业信息和文件
 	fmt.Printf("签名创建请求: %s (公司: %s, 材料类型: %s)\n",
 		createReq.SMSSignature,
 		createReq.Company,
