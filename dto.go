@@ -363,30 +363,30 @@ type SMSSignatureQueryRequest struct {
 
 // 短信签名创建请求
 type SMSSignatureCreateRequest struct {
-	SMSSignature       string                 `form:"sms_signature" json:"sms_signature" xml:"sms_signature"`                         // 短信签名（可省略【】符号）
-	Company            string                 `form:"company" json:"company" xml:"company"`                                           // 公司名称
-	CompanyLisenceCode string                 `form:"company_lisence_code" json:"company_lisence_code" xml:"company_lisence_code"`    // 公司税号
-	LegalName          string                 `form:"legal_name" json:"legal_name" xml:"legal_name"`                                  // 公司法人姓名
-	Attachments        []multipart.FileHeader `form:"attachments" json:"attachments" xml:"attachments"`                               // 证明材料文件（可多个）
-	AgentName          string                 `form:"agent_name" json:"agent_name" xml:"agent_name"`                                  // 责任人姓名
-	AgentID            string                 `form:"agent_id" json:"agent_id" xml:"agent_id"`                                        // 责任人身份证号
-	AgentMob           string                 `form:"agent_mob" json:"agent_mob" xml:"agent_mob"`                                     // 责任人手机号
-	SourceType         int                    `form:"source_type,omitempty" json:"source_type,omitempty" xml:"source_type,omitempty"` // 材料类型：0=营业执照、1=商标、2=APP
-	Contact            string                 `form:"contact,omitempty" json:"contact,omitempty" xml:"contact,omitempty"`             // 联系人手机号码
+	SMSSignature       string                  `form:"sms_signature" json:"sms_signature" xml:"sms_signature"`                         // 短信签名（可省略【】符号）
+	Company            string                  `form:"company" json:"company" xml:"company"`                                           // 公司名称
+	CompanyLisenceCode string                  `form:"company_lisence_code" json:"company_lisence_code" xml:"company_lisence_code"`    // 公司税号
+	LegalName          string                  `form:"legal_name" json:"legal_name" xml:"legal_name"`                                  // 公司法人姓名
+	Attachments        []*multipart.FileHeader `form:"attachments" json:"-" xml:"-"`                                                   // 证明材料文件（必需，可多个）
+	AgentName          string                  `form:"agent_name" json:"agent_name" xml:"agent_name"`                                  // 责任人姓名
+	AgentID            string                  `form:"agent_id" json:"agent_id" xml:"agent_id"`                                        // 责任人身份证号
+	AgentMob           string                  `form:"agent_mob" json:"agent_mob" xml:"agent_mob"`                                     // 责任人手机号
+	SourceType         int                     `form:"source_type,omitempty" json:"source_type,omitempty" xml:"source_type,omitempty"` // 材料类型：0=营业执照、1=商标、2=APP
+	Contact            string                  `form:"contact,omitempty" json:"contact,omitempty" xml:"contact,omitempty"`             // 联系人手机号码
 }
 
 // 短信签名更新请求
 type SMSSignatureUpdateRequest struct {
-	SMSSignature       string                 `form:"sms_signature" json:"sms_signature" xml:"sms_signature"`                                                    // 短信签名（必填）
-	Company            string                 `form:"company,omitempty" json:"company,omitempty" xml:"company,omitempty"`                                        // 公司名称
-	CompanyLisenceCode string                 `form:"company_lisence_code,omitempty" json:"company_lisence_code,omitempty" xml:"company_lisence_code,omitempty"` // 公司税号
-	LegalName          string                 `form:"legal_name,omitempty" json:"legal_name,omitempty" xml:"legal_name,omitempty"`                               // 公司法人姓名
-	Attachments        []multipart.FileHeader `form:"attachments,omitempty" json:"attachments,omitempty" xml:"attachments,omitempty"`                            // 证明材料文件（可选，可多个）
-	AgentName          string                 `form:"agent_name,omitempty" json:"agent_name,omitempty" xml:"agent_name,omitempty"`                               // 责任人姓名
-	AgentID            string                 `form:"agent_id,omitempty" json:"agent_id,omitempty" xml:"agent_id,omitempty"`                                     // 责任人身份证号
-	AgentMob           string                 `form:"agent_mob,omitempty" json:"agent_mob,omitempty" xml:"agent_mob,omitempty"`                                  // 责任人手机号
-	SourceType         int                    `form:"source_type,omitempty" json:"source_type,omitempty" xml:"source_type,omitempty"`                            // 材料类型：0=营业执照、1=商标、2=APP
-	Contact            string                 `form:"contact,omitempty" json:"contact,omitempty" xml:"contact,omitempty"`                                        // 联系人手机号码
+	SMSSignature       string                  `form:"sms_signature" json:"sms_signature" xml:"sms_signature"`                                                    // 短信签名（必填）
+	Company            string                  `form:"company,omitempty" json:"company,omitempty" xml:"company,omitempty"`                                        // 公司名称
+	CompanyLisenceCode string                  `form:"company_lisence_code,omitempty" json:"company_lisence_code,omitempty" xml:"company_lisence_code,omitempty"` // 公司税号
+	LegalName          string                  `form:"legal_name,omitempty" json:"legal_name,omitempty" xml:"legal_name,omitempty"`                               // 公司法人姓名
+	Attachments        []*multipart.FileHeader `form:"attachments,omitempty" json:"-" xml:"-"`                                                                    // 证明材料文件（可选，可多个）
+	AgentName          string                  `form:"agent_name,omitempty" json:"agent_name,omitempty" xml:"agent_name,omitempty"`                               // 责任人姓名
+	AgentID            string                  `form:"agent_id,omitempty" json:"agent_id,omitempty" xml:"agent_id,omitempty"`                                     // 责任人身份证号
+	AgentMob           string                  `form:"agent_mob,omitempty" json:"agent_mob,omitempty" xml:"agent_mob,omitempty"`                                  // 责任人手机号
+	SourceType         int                     `form:"source_type,omitempty" json:"source_type,omitempty" xml:"source_type,omitempty"`                            // 材料类型：0=营业执照、1=商标、2=APP
+	Contact            string                  `form:"contact,omitempty" json:"contact,omitempty" xml:"contact,omitempty"`                                        // 联系人手机号码
 }
 
 // 短信签名删除请求

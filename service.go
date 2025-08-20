@@ -560,13 +560,13 @@ func (c *Client) doJSONRequestWithBaseURL(method, endpoint string, data interfac
 	return c.doRequestWithBaseURL(method, endpoint, params, baseURL)
 }
 
-// doMultipartFormRequest 执行multipart表单请求（处理结构体中的FileHeader）
-func (c *Client) doMultipartFormRequest(method, endpoint string, formData interface{}) ([]byte, error) {
-	return c.doMultipartFormRequestWithBaseURL(method, endpoint, formData, c.BaseURL)
+// doMultipartFormRequest 执行multipart/form-data请求
+func (c *Client) doMultipartFormRequest(method, endpoint string, data interface{}) ([]byte, error) {
+	return c.doMultipartFormRequestWithBaseURL(method, endpoint, data, c.BaseURL)
 }
 
-// doMultipartFormRequestWithBaseURL 使用指定基础URL执行multipart表单请求
-func (c *Client) doMultipartFormRequestWithBaseURL(method, endpoint string, formData interface{}, baseURL string) ([]byte, error) {
+// doMultipartFormRequestWithBaseURL 使用指定基础URL执行multipart/form-data请求
+func (c *Client) doMultipartFormRequestWithBaseURL(method, endpoint string, data interface{}, baseURL string) ([]byte, error) {
 	// 构建URL
 	requestURL := baseURL + endpoint
 	if c.format == FormatXML {
@@ -580,7 +580,7 @@ func (c *Client) doMultipartFormRequestWithBaseURL(method, endpoint string, form
 	writer := multipart.NewWriter(&body)
 
 	// 使用反射处理结构体字段
-	v := reflect.ValueOf(formData)
+	v := reflect.ValueOf(data)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
@@ -607,22 +607,24 @@ func (c *Client) doMultipartFormRequestWithBaseURL(method, endpoint string, form
 		}
 
 		// 处理文件字段
-		if field.Type() == reflect.TypeOf([]multipart.FileHeader{}) {
-			fileHeaders := field.Interface().([]multipart.FileHeader)
+		if formTag == "attachments" && field.Type() == reflect.TypeOf([]*multipart.FileHeader{}) {
+			fileHeaders := field.Interface().([]*multipart.FileHeader)
 			for _, fh := range fileHeaders {
-				file, err := fh.Open()
-				if err != nil {
-					return nil, fmt.Errorf("打开文件失败: %v", err)
-				}
-				defer file.Close()
+				if fh != nil {
+					file, err := fh.Open()
+					if err != nil {
+						return nil, fmt.Errorf("打开文件失败: %v", err)
+					}
+					defer file.Close()
 
-				fileWriter, err := writer.CreateFormFile(formTag, fh.Filename)
-				if err != nil {
-					return nil, fmt.Errorf("创建文件字段失败: %v", err)
-				}
+					fileWriter, err := writer.CreateFormFile("attachments", fh.Filename)
+					if err != nil {
+						return nil, fmt.Errorf("创建文件字段失败: %v", err)
+					}
 
-				if _, err := io.Copy(fileWriter, file); err != nil {
-					return nil, fmt.Errorf("写入文件数据失败: %v", err)
+					if _, err := io.Copy(fileWriter, file); err != nil {
+						return nil, fmt.Errorf("写入文件数据失败: %v", err)
+					}
 				}
 			}
 		} else {
