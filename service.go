@@ -477,7 +477,7 @@ func (c *Client) doRequestWithBaseURL(method, endpoint string, params map[string
 			requestURL += "?" + values.Encode()
 		}
 		req, err = http.NewRequest("GET", requestURL, nil)
-	} else {
+	} else if method == "POST" {
 		// POST请求，参数放在body中
 		values := url.Values{}
 		for k, v := range params {
@@ -487,6 +487,28 @@ func (c *Client) doRequestWithBaseURL(method, endpoint string, params map[string
 		if err == nil {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
+	} else if method == "DELETE" {
+		// DELETE请求，参数放在URL中
+		values := url.Values{}
+		for k, v := range params {
+			values.Set(k, v)
+		}
+		if len(values) > 0 {
+			requestURL += "?" + values.Encode()
+		}
+		req, err = http.NewRequest("DELETE", requestURL, nil)
+	} else if method == "PUT" {
+		// PUT请求，参数放在body中
+		values := url.Values{}
+		for k, v := range params {
+			values.Set(k, v)
+		}
+		req, err = http.NewRequest("PUT", requestURL, strings.NewReader(values.Encode()))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+	} else {
+		return nil, fmt.Errorf("不支持的HTTP方法: %s", method)
 	}
 
 	if err != nil {
