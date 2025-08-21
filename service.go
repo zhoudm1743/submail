@@ -488,15 +488,15 @@ func (c *Client) doRequestWithBaseURL(method, endpoint string, params map[string
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 	} else if method == "DELETE" {
-		// DELETE请求，参数放在URL中
+		// DELETE请求，根据SUBMAIL文档，参数放在请求体中（类似POST）
 		values := url.Values{}
 		for k, v := range params {
 			values.Set(k, v)
 		}
-		if len(values) > 0 {
-			requestURL += "?" + values.Encode()
+		req, err = http.NewRequest("DELETE", requestURL, strings.NewReader(values.Encode()))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
-		req, err = http.NewRequest("DELETE", requestURL, nil)
 	} else if method == "PUT" {
 		// PUT请求，参数放在body中
 		values := url.Values{}
@@ -1143,15 +1143,16 @@ func (c *Client) SMSSignatureDelete(req *SMSSignatureDeleteRequest) (*SMSSignatu
 		return nil, fmt.Errorf("请求参数不能为空")
 	}
 
-	// DELETE 请求使用 URL 参数而不是请求体
+	// 构建请求参数，添加 action 参数标识删除操作
 	params := map[string]string{
+		"action":        "delete",
 		"sms_signature": req.SMSSignature,
 	}
 	if req.TargetAppID != "" {
 		params["target_appid"] = req.TargetAppID
 	}
 
-	body, err := c.doRequest("DELETE", EndpointSMSAppextend, params)
+	body, err := c.doRequest("POST", EndpointSMSAppextend, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1251,12 +1252,8 @@ func (c *Client) SMSTemplateDelete(req *SMSTemplateDeleteRequest) (*SMSTemplateO
 		return nil, fmt.Errorf("请求参数不能为空")
 	}
 
-	// DELETE 请求使用 URL 参数而不是请求体
-	params := map[string]string{
-		"template_id": req.TemplateID,
-	}
-
-	body, err := c.doRequest("DELETE", EndpointSMSTemplate, params)
+	// 根据官方文档，DELETE 请求参数应该放在请求体中（使用 --data）
+	body, err := c.doJSONRequest("DELETE", EndpointSMSTemplate, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2046,12 +2043,8 @@ func (c *Client) SubhookDelete(req *SubhookDeleteRequest) (*SubhookDeleteRespons
 		return nil, fmt.Errorf("SUBHOOK ID不能为空")
 	}
 
-	// DELETE 请求使用 URL 参数而不是请求体
-	params := map[string]string{
-		"target": req.Target,
-	}
-
-	body, err := c.doRequest("DELETE", EndpointSubhook, params)
+	// 根据SUBMAIL文档，DELETE 请求参数应该放在请求体中
+	body, err := c.doJSONRequest("DELETE", EndpointSubhook, req)
 	if err != nil {
 		return nil, err
 	}
