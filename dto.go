@@ -412,3 +412,99 @@ type SMSSignatureQueryResponse struct {
 type SMSSignatureOperationResponse struct {
 	BaseResponse
 }
+
+// ===== SUBHOOK 相关结构定义 =====
+
+// SUBHOOK 事件类型常量
+const (
+	SubhookEventRequest        = "request"         // 发送请求被接收
+	SubhookEventDelivered      = "delivered"       // 发送成功
+	SubhookEventDropped        = "dropped"         // 发送失败
+	SubhookEventSending        = "sending"         // 正在发送
+	SubhookEventMO             = "mo"              // 短信上行（指用户回复和上行）
+	SubhookEventTemplateAccept = "template_accept" // 短信模板审核通过
+	SubhookEventTemplateReject = "template_reject" // 短信模板审核未通过
+)
+
+// SUBHOOK 创建请求
+type SubhookCreateRequest struct {
+	URL      string   `json:"url" form:"url" xml:"url"`                             // 回调URL（必填）
+	Event    []string `json:"event" form:"event" xml:"event"`                       // 事件类型数组（必填）
+	Tag      string   `json:"tag,omitempty" form:"tag" xml:"tag"`                   // 标签（可选）
+	MaxFails int      `json:"max_fails,omitempty" form:"max_fails" xml:"max_fails"` // 最大失败次数（可选，默认3）
+}
+
+// SUBHOOK 查询请求
+type SubhookQueryRequest struct {
+	Target string `json:"target,omitempty" form:"target" xml:"target"` // 查询特定的SUBHOOK ID
+}
+
+// SUBHOOK 删除请求
+type SubhookDeleteRequest struct {
+	Target string `json:"target" form:"target" xml:"target"` // 要删除的SUBHOOK ID（必填）
+}
+
+// SUBHOOK 信息
+type SubhookInfo struct {
+	Target     string   `json:"target" form:"target" xml:"target"`                // SUBHOOK ID
+	URL        string   `json:"url" form:"url" xml:"url"`                         // 回调URL
+	Event      []string `json:"event" form:"event" xml:"event"`                   // 事件类型数组
+	Tag        string   `json:"tag,omitempty" form:"tag" xml:"tag"`               // 标签
+	MaxFails   int      `json:"max_fails" form:"max_fails" xml:"max_fails"`       // 最大失败次数
+	CreateTime int64    `json:"create_time" form:"create_time" xml:"create_time"` // 创建时间（UNIX时间戳）
+	Status     string   `json:"status" form:"status" xml:"status"`                // 状态
+}
+
+// SUBHOOK 创建响应
+type SubhookCreateResponse struct {
+	BaseResponse
+	Target string `json:"target,omitempty" form:"target" xml:"target"` // 创建成功返回的SUBHOOK ID
+	Key    string `json:"key,omitempty" form:"key" xml:"key"`          // SUBHOOK 密匙
+}
+
+// SUBHOOK 查询响应
+type SubhookQueryResponse struct {
+	BaseResponse
+	Subhooks []SubhookInfo `json:"subhooks,omitempty" form:"subhooks" xml:"subhooks"` // SUBHOOK 列表
+}
+
+// SUBHOOK 删除响应
+type SubhookDeleteResponse struct {
+	BaseResponse
+}
+
+// SUBHOOK 事件通知数据（接收推送时使用）
+type SubhookEventData struct {
+	Token     string                 `json:"token" form:"token" xml:"token"`             // 32位随机字符串
+	Signature string                 `json:"signature" form:"signature" xml:"signature"` // 数字签名
+	Event     string                 `json:"event" form:"event" xml:"event"`             // 事件类型
+	AppID     string                 `json:"appid" form:"appid" xml:"appid"`             // 应用ID
+	Data      map[string]interface{} `json:"data,omitempty" form:"data" xml:"data"`      // 事件相关数据
+	Timestamp int64                  `json:"timestamp" form:"timestamp" xml:"timestamp"` // 事件时间戳
+}
+
+// 短信发送事件数据
+type SMSSubhookEventData struct {
+	SendID   string `json:"send_id" form:"send_id" xml:"send_id"`                 // 发送ID
+	To       string `json:"to" form:"to" xml:"to"`                                // 收件人
+	Content  string `json:"content" form:"content" xml:"content"`                 // 短信内容
+	Status   string `json:"status" form:"status" xml:"status"`                    // 状态
+	Fee      int    `json:"fee,omitempty" form:"fee" xml:"fee"`                   // 费用
+	SendAt   int64  `json:"send_at" form:"send_at" xml:"send_at"`                 // 发送时间
+	ReportAt int64  `json:"report_at,omitempty" form:"report_at" xml:"report_at"` // 汇报时间
+}
+
+// 短信上行事件数据
+type SMSMOSubhookEventData struct {
+	From       string `json:"from" form:"from" xml:"from"`                      // 发送方手机号
+	Content    string `json:"content" form:"content" xml:"content"`             // 上行内容
+	ReplyAt    int64  `json:"reply_at" form:"reply_at" xml:"reply_at"`          // 回复时间
+	SMSContent string `json:"sms_content" form:"sms_content" xml:"sms_content"` // 对应的下行短信内容
+}
+
+// 模板审核事件数据
+type TemplateSubhookEventData struct {
+	TemplateID string `json:"template_id" form:"template_id" xml:"template_id"` // 模板ID
+	Status     string `json:"status" form:"status" xml:"status"`                // 审核状态
+	Reason     string `json:"reason,omitempty" form:"reason" xml:"reason"`      // 审核原因（拒绝时）
+}

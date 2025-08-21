@@ -47,6 +47,7 @@ const (
 	EndpointSMSLog           = "/sms/log"
 	EndpointSMSMO            = "/sms/mo"
 	EndpointSMSAppextend     = "/sms/appextend"
+	EndpointSubhook          = "/subhook"
 	EndpointServiceTimestamp = "/service/timestamp"
 	EndpointServiceStatus    = "/service/status"
 )
@@ -1949,4 +1950,151 @@ func (resp *SMSMOResponse) GetReplyRate() map[string]float64 {
 	}
 
 	return result
+}
+
+// ===== SUBHOOK 管理API =====
+
+// SubhookCreate 创建 SUBHOOK
+func (c *Client) SubhookCreate(req *SubhookCreateRequest) (*SubhookCreateResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("请求参数不能为空")
+	}
+
+	// 验证必填参数
+	if req.URL == "" {
+		return nil, fmt.Errorf("回调URL不能为空")
+	}
+	if len(req.Event) == 0 {
+		return nil, fmt.Errorf("事件类型不能为空")
+	}
+
+	// 验证事件类型
+	if errors := ValidateEventTypes(req.Event); len(errors) > 0 {
+		return nil, fmt.Errorf("事件类型验证失败: %v", errors)
+	}
+
+	body, err := c.doJSONRequest("POST", EndpointSubhook, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp SubhookCreateResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("解析 SUBHOOK 创建响应失败: %v", err)
+	}
+
+	return &resp, nil
+}
+
+// SubhookQuery 查询 SUBHOOK
+func (c *Client) SubhookQuery(req *SubhookQueryRequest) (*SubhookQueryResponse, error) {
+	body, err := c.doJSONRequest("GET", EndpointSubhook, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp SubhookQueryResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("解析 SUBHOOK 查询响应失败: %v", err)
+	}
+
+	return &resp, nil
+}
+
+// SubhookDelete 删除 SUBHOOK
+func (c *Client) SubhookDelete(req *SubhookDeleteRequest) (*SubhookDeleteResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("请求参数不能为空")
+	}
+
+	if req.Target == "" {
+		return nil, fmt.Errorf("SUBHOOK ID不能为空")
+	}
+
+	body, err := c.doJSONRequest("DELETE", EndpointSubhook, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp SubhookDeleteResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("解析 SUBHOOK 删除响应失败: %v", err)
+	}
+
+	return &resp, nil
+}
+
+// ===== SUBHOOK 便捷方法 =====
+
+// SubhookCreateWithEvents 创建指定事件的 SUBHOOK（便捷方法）
+func (c *Client) SubhookCreateWithEvents(url string, events []string, tag string) (*SubhookCreateResponse, error) {
+	req := &SubhookCreateRequest{
+		URL:   url,
+		Event: events,
+		Tag:   tag,
+	}
+	return c.SubhookCreate(req)
+}
+
+// SubhookCreateForSMS 创建短信相关事件的 SUBHOOK（便捷方法）
+func (c *Client) SubhookCreateForSMS(url string, tag string) (*SubhookCreateResponse, error) {
+	events := []string{
+		SubhookEventRequest,
+		SubhookEventDelivered,
+		SubhookEventDropped,
+		SubhookEventSending,
+	}
+	return c.SubhookCreateWithEvents(url, events, tag)
+}
+
+// SubhookCreateForTemplate 创建模板审核相关事件的 SUBHOOK（便捷方法）
+func (c *Client) SubhookCreateForTemplate(url string, tag string) (*SubhookCreateResponse, error) {
+	events := []string{
+		SubhookEventTemplateAccept,
+		SubhookEventTemplateReject,
+	}
+	return c.SubhookCreateWithEvents(url, events, tag)
+}
+
+// SubhookCreateForMO 创建短信上行事件的 SUBHOOK（便捷方法）
+func (c *Client) SubhookCreateForMO(url string, tag string) (*SubhookCreateResponse, error) {
+	events := []string{SubhookEventMO}
+	return c.SubhookCreateWithEvents(url, events, tag)
+}
+
+// SubhookCreateForAll 创建所有事件的 SUBHOOK（便捷方法）
+func (c *Client) SubhookCreateForAll(url string, tag string) (*SubhookCreateResponse, error) {
+	events := []string{
+		SubhookEventRequest,
+		SubhookEventDelivered,
+		SubhookEventDropped,
+		SubhookEventSending,
+		SubhookEventMO,
+		SubhookEventTemplateAccept,
+		SubhookEventTemplateReject,
+	}
+	return c.SubhookCreateWithEvents(url, events, tag)
+}
+
+// SubhookQueryAll 查询所有 SUBHOOK（便捷方法）
+func (c *Client) SubhookQueryAll() (*SubhookQueryResponse, error) {
+	req := &SubhookQueryRequest{}
+	return c.SubhookQuery(req)
+}
+
+// SubhookQueryByID 根据ID查询 SUBHOOK（便捷方法）
+func (c *Client) SubhookQueryByID(target string) (*SubhookQueryResponse, error) {
+	req := &SubhookQueryRequest{Target: target}
+	return c.SubhookQuery(req)
+}
+
+// SubhookDeleteByID 根据ID删除 SUBHOOK（便捷方法）
+func (c *Client) SubhookDeleteByID(target string) (*SubhookDeleteResponse, error) {
+	req := &SubhookDeleteRequest{Target: target}
+	return c.SubhookDelete(req)
+}
+
+// GetSubhookHandler 获取 SUBHOOK 处理器
+func (c *Client) GetSubhookHandler() *SubhookHandler {
+	return NewSubhookHandler(c)
 }
