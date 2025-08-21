@@ -1143,7 +1143,15 @@ func (c *Client) SMSSignatureDelete(req *SMSSignatureDeleteRequest) (*SMSSignatu
 		return nil, fmt.Errorf("请求参数不能为空")
 	}
 
-	body, err := c.doJSONRequest("DELETE", EndpointSMSAppextend, req)
+	// DELETE 请求使用 URL 参数而不是请求体
+	params := map[string]string{
+		"sms_signature": req.SMSSignature,
+	}
+	if req.TargetAppID != "" {
+		params["target_appid"] = req.TargetAppID
+	}
+
+	body, err := c.doRequest("DELETE", EndpointSMSAppextend, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1243,7 +1251,12 @@ func (c *Client) SMSTemplateDelete(req *SMSTemplateDeleteRequest) (*SMSTemplateO
 		return nil, fmt.Errorf("请求参数不能为空")
 	}
 
-	body, err := c.doJSONRequest("DELETE", EndpointSMSTemplate, req)
+	// DELETE 请求使用 URL 参数而不是请求体
+	params := map[string]string{
+		"template_id": req.TemplateID,
+	}
+
+	body, err := c.doRequest("DELETE", EndpointSMSTemplate, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2033,7 +2046,12 @@ func (c *Client) SubhookDelete(req *SubhookDeleteRequest) (*SubhookDeleteRespons
 		return nil, fmt.Errorf("SUBHOOK ID不能为空")
 	}
 
-	body, err := c.doJSONRequest("DELETE", EndpointSubhook, req)
+	// DELETE 请求使用 URL 参数而不是请求体
+	params := map[string]string{
+		"target": req.Target,
+	}
+
+	body, err := c.doRequest("DELETE", EndpointSubhook, params)
 	if err != nil {
 		return nil, err
 	}
